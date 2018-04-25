@@ -1,6 +1,8 @@
 package ab1.impl.feichter;
 
 import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Random;
@@ -66,33 +68,39 @@ public class RSAImpl implements RSA {
 
 		if (!isEmpty(data)) {
 			if (!activateOAEP) {
-				int originalLength = (int) Math.ceil(getPublicKey().getN().bitLength() / 2 / (double) BYTE_SIZE);
-				int blockLength = originalLength - PADDING_SIZE;
-				int cipherBlockLength = getPublicKey().getN().toByteArray().length;
-				int cipherLength = (int) Math.ceil(data.length / (double) blockLength) * cipherBlockLength;
-				
-				cipher = new byte[cipherLength];
-				
-				int steps = 1;
-				do {
-					int start = (steps - 1);
-					byte[] messagePart = new byte[originalLength];
-					int copyLength = data.length - start * blockLength < blockLength ? data.length - start * blockLength : blockLength;
-					
-					System.arraycopy(PADDING, 0, messagePart, 0, PADDING_SIZE);
-					System.arraycopy(data, start * blockLength, messagePart, PADDING_SIZE, copyLength);
-					
-					messagePart = Arrays.copyOfRange(messagePart, 0, copyLength + PADDING_SIZE);
-					byte[] cipherBlock = this.proccessByteBlock(messagePart, getPublicKey().getE(), getPublicKey().getN());
-					System.arraycopy(cipherBlock, 0, cipher, start * cipherBlockLength + (cipherBlockLength - cipherBlock.length), cipherBlock.length);
-					
-					steps++;
-				} while ((steps - 1) * blockLength < data.length);
+				cipher = rsaEncryption(data, false);
 			} else {
 				// TODO
 			}
 		}
 
+		return cipher;
+	}
+
+	private byte[] rsaEncryption(byte[] data, boolean isSignature) {
+		byte[] cipher;
+		int originalLength = (int) Math.ceil(getPublicKey().getN().bitLength() / 2 / (double) BYTE_SIZE);
+		int blockLength = originalLength - PADDING_SIZE;
+		int cipherBlockLength = getPublicKey().getN().toByteArray().length;
+		int cipherLength = (int) Math.ceil(data.length / (double) blockLength) * cipherBlockLength;
+		
+		cipher = new byte[cipherLength];
+		
+		int steps = 1;
+		do {
+			int start = (steps - 1);
+			byte[] messagePart = new byte[originalLength];
+			int copyLength = data.length - start * blockLength < blockLength ? data.length - start * blockLength : blockLength;
+			
+			System.arraycopy(PADDING, 0, messagePart, 0, PADDING_SIZE);
+			System.arraycopy(data, start * blockLength, messagePart, PADDING_SIZE, copyLength);
+			
+			messagePart = Arrays.copyOfRange(messagePart, 0, copyLength + PADDING_SIZE);
+			byte[] cipherBlock = this.proccessByteBlock(messagePart, isSignature ? getPrivateKey().getD() : getPublicKey().getE(), getPublicKey().getN());
+			System.arraycopy(cipherBlock, 0, cipher, start * cipherBlockLength + (cipherBlockLength - cipherBlock.length), cipherBlock.length);
+			
+			steps++;
+		} while ((steps - 1) * blockLength < data.length);
 		return cipher;
 	}
 
@@ -103,48 +111,60 @@ public class RSAImpl implements RSA {
 		if (false) {
 			// TODO
 		} else {
-			int originalLength = (int) Math.ceil(getPublicKey().getN().bitLength() / 2 / (double) BYTE_SIZE);
-			int blockLength = originalLength - PADDING_SIZE;
-			int dataBlockLength = getPublicKey().getN().toByteArray().length;
-			int messageLength = (int) Math.ceil(data.length / (double) dataBlockLength) * blockLength;
-
-			original = new byte[messageLength];
-
-			int steps = 1;
-			int pos = 0;
-			do {
-				int start = steps - 1;
-				byte[] dataPart = Arrays.copyOfRange(data, start * dataBlockLength, start * dataBlockLength + dataBlockLength);
-				byte[] messageBlock = this.proccessByteBlock(dataPart, getPrivateKey().getD(), getPrivateKey().getN());
-
-				if (messageBlock[0] != 1) {
-					return new byte[0];
-				}
-
-				if (messageBlock.length < original.length) {
-					System.arraycopy(messageBlock, 0 + 1, original, pos, messageBlock.length - 1);
-				}
-
-				pos += messageBlock.length - 1;
-				steps++;
-			} while (steps * dataBlockLength <= data.length);
-
-			original = Arrays.copyOfRange(original, 0, pos);
+			original = rsaDecrypt(data, false);
 		}
 
+		return original;
+	}
+	
+	private byte[] rsaDecrypt(byte[] data, boolean isSignature) {
+		byte[] original = null;
+		int originalLength = (int) Math.ceil(getPublicKey().getN().bitLength() / 2 / (double) BYTE_SIZE);
+		int blockLength = originalLength - PADDING_SIZE;
+		int dataBlockLength = getPublicKey().getN().toByteArray().length;
+		int messageLength = (int) Math.ceil(data.length / (double) dataBlockLength) * blockLength;
+
+		original = new byte[messageLength];
+
+		int steps = 1;
+		int pos = 0;
+		do {
+			int start = steps - 1;
+			byte[] dataPart = Arrays.copyOfRange(data, start * dataBlockLength, start * dataBlockLength + dataBlockLength);
+			byte[] messageBlock = this.proccessByteBlock(dataPart, isSignature ? getPublicKey().getE() : getPrivateKey().getD(), getPrivateKey().getN());
+
+			if (messageBlock[0] != 1) {
+				return new byte[0];
+			}
+
+			if (messageBlock.length < original.length) {
+				System.arraycopy(messageBlock, 0 + 1, original, pos, messageBlock.length - 1);
+			}
+
+			pos += messageBlock.length - 1;
+			steps++;
+		} while (steps * dataBlockLength <= data.length);
+
+		original = Arrays.copyOfRange(original, 0, pos);
 		return original;
 	}
 
 	@Override
 	public byte[] sign(byte[] message) {
-		// TODO Auto-generated method stub
-		return null;
+		byte[] signature = rsaEncryption(toHash(message), true);
+		return Arrays.copyOfRange(signature, 1, signature.length);
 	}
 
 	@Override
 	public Boolean verify(byte[] message, byte[] signature) {
-		// TODO Auto-generated method stub
-		return null;
+		byte[] signatureRichtig = new byte[signature.length+1];
+		signatureRichtig[0] = 0;
+		for (int i = 0; i < signature.length; i++) {
+			byte b = signature[i];
+			signatureRichtig[i+1] = b;
+		}
+		
+		return Arrays.equals(rsaDecrypt(signatureRichtig, true), toHash(message));
 	}
 
 	/**
@@ -173,5 +193,18 @@ public class RSAImpl implements RSA {
 	 */
 	private boolean isEmpty(byte[] arr) {
 		return arr == null || arr.length == 0;
+	}
+	
+	private byte[] toHash(byte[] data) {
+		byte[] hash = null;
+		
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			hash = digest.digest(data);
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+		
+		return hash;
 	}
 }
