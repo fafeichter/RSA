@@ -2,14 +2,18 @@ package ab1.impl.feichter;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Random;
 
 import ab1.RSA;
 
 public class RSAImpl implements RSA {
 
+	private static final BigInteger ZERO = BigInteger.ZERO;
 	private static final BigInteger ONE = BigInteger.ONE;
 	private static final int BYTE_SIZE = Byte.SIZE;
+	private static final byte[] PADDING = { 0, 0, 0, 0, 0, 0, 1 };
+	private static final int PADDING_SIZE = PADDING.length;
 
 	private PublicKey publicKey;
 	private PrivateKey privateKey;
@@ -58,14 +62,44 @@ public class RSAImpl implements RSA {
 
 	@Override
 	public byte[] encrypt(byte[] data, boolean activateOAEP) {
-		// TODO Auto-generated method stub
-		return null;
+		byte[] cipher = null;
+
+		if (!isEmpty(data)) {
+			if (!activateOAEP) {
+				int originalLength = (int) Math.ceil(getPublicKey().getN().bitLength() / 2 / (double) BYTE_SIZE);
+				int blockLength = originalLength - PADDING_SIZE;
+				int cipherBlockLength = getPublicKey().getN().toByteArray().length;
+				int cipherLength = (int) Math.ceil(data.length / (double) blockLength) * cipherBlockLength;
+				int steps = 1;
+
+				cipher = new byte[cipherLength];
+				
+				do {
+					int start = (steps - 1);
+					byte[] messagePart = new byte[originalLength];
+					int copyLength = data.length - start * blockLength < blockLength ? data.length - start * blockLength : blockLength;
+					
+					System.arraycopy(PADDING, 0, messagePart, 0, PADDING_SIZE);
+					System.arraycopy(data, start * blockLength, messagePart, PADDING_SIZE, copyLength);
+					
+					messagePart = Arrays.copyOfRange(messagePart, 0, copyLength + PADDING_SIZE);
+					byte[] cipherBlock = this.proccessByteBlock(messagePart, getPublicKey().getE(), getPublicKey().getN());
+					System.arraycopy(cipherBlock, 0, cipher, start * cipherBlockLength + (cipherBlockLength - cipherBlock.length), cipherBlock.length);
+					
+					steps++;
+				} while ((steps - 1) * blockLength < data.length);
+			} else {
+				// TODO
+			}
+		}
+
+		return cipher;
 	}
 
 	@Override
 	public byte[] decrypt(byte[] data) {
 		// TODO Auto-generated method stub
-		return null;
+				return null;
 	}
 
 	@Override
@@ -78,5 +112,33 @@ public class RSAImpl implements RSA {
 	public Boolean verify(byte[] message, byte[] signature) {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	/**
+	 * Returns data^exponent MOD modulus ("Square & Multiply"). If the calculation
+	 * is not applicable to the specified parameters the result is null.
+	 * 
+	 * @param data		Data
+	 * @param exponent	Exponent
+	 * @param modulus	Modulus
+	 * @return 			data^exponent MOD modulus
+	 */
+	private byte[] proccessByteBlock(byte[] data, BigInteger exponent, BigInteger modulus) {
+		byte[] result = null;
+		if (!isEmpty(data) && modulus.compareTo(ZERO) == 1 && exponent.compareTo(ZERO) == 1) {
+			result = new BigInteger(data).modPow(exponent, modulus).toByteArray();
+		}
+		return result;
+	}
+
+	/**
+	 * Returns true if the specified array is empty, otherwise false.
+	 * 
+	 * @param arr	Array
+	 * 
+	 * @return 		true if the specified array is empty, otherwise false
+	 */
+	private boolean isEmpty(byte[] arr) {
+		return arr == null || arr.length == 0;
 	}
 }
