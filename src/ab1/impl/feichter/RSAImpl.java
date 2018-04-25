@@ -70,10 +70,10 @@ public class RSAImpl implements RSA {
 				int blockLength = originalLength - PADDING_SIZE;
 				int cipherBlockLength = getPublicKey().getN().toByteArray().length;
 				int cipherLength = (int) Math.ceil(data.length / (double) blockLength) * cipherBlockLength;
-				int steps = 1;
-
+				
 				cipher = new byte[cipherLength];
 				
+				int steps = 1;
 				do {
 					int start = (steps - 1);
 					byte[] messagePart = new byte[originalLength];
@@ -98,8 +98,41 @@ public class RSAImpl implements RSA {
 
 	@Override
 	public byte[] decrypt(byte[] data) {
-		// TODO Auto-generated method stub
-				return null;
+		byte[] original = null;
+
+		if (false) {
+			// TODO
+		} else {
+			int originalLength = (int) Math.ceil(getPublicKey().getN().bitLength() / 2 / (double) BYTE_SIZE);
+			int blockLength = originalLength - PADDING_SIZE;
+			int dataBlockLength = getPublicKey().getN().toByteArray().length;
+			int messageLength = (int) Math.ceil(data.length / (double) dataBlockLength) * blockLength;
+
+			original = new byte[messageLength];
+
+			int steps = 1;
+			int pos = 0;
+			do {
+				int start = steps - 1;
+				byte[] dataPart = Arrays.copyOfRange(data, start * dataBlockLength, start * dataBlockLength + dataBlockLength);
+				byte[] messageBlock = this.proccessByteBlock(dataPart, getPrivateKey().getD(), getPrivateKey().getN());
+
+				if (messageBlock[0] != 1) {
+					return new byte[0];
+				}
+
+				if (messageBlock.length < original.length) {
+					System.arraycopy(messageBlock, 0 + 1, original, pos, messageBlock.length - 1);
+				}
+
+				pos += messageBlock.length - 1;
+				steps++;
+			} while (steps * dataBlockLength <= data.length);
+
+			original = Arrays.copyOfRange(original, 0, pos);
+		}
+
+		return original;
 	}
 
 	@Override
