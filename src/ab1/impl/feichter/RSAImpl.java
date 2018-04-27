@@ -20,16 +20,22 @@ public class RSAImpl implements RSA {
 	/**
 	 * Helper constants
 	 */
-	private static final BigInteger ZERO = 	BigInteger.ZERO;
-	private static final BigInteger ONE = 	BigInteger.ONE;
-	private static final int BYTE_SIZE = 	Byte.SIZE;
-	
+	private static final BigInteger ZERO = BigInteger.ZERO;
+	private static final BigInteger ONE = BigInteger.ONE;
+	private static final int BYTE_SIZE = Byte.SIZE;
+
+	/**
+	 * Byte to define wether it is encrytped with oaep or not
+	 */
+	private static final byte OAEP_ON = 1;
+	private static final byte OAEP_OFF = 0;
+
 	/**
 	 * Padding is used because of the possible different length of decrypted blocks
 	 */
-	private static final byte[] PADDING = 	{ 0, 0, 0, 0, 0, 0, 1 };
+	private static final byte[] PADDING = { 0, 0, 0, 0, 0, 0, 1 };
 	private static final int PADDING_SIZE = PADDING.length;
-	
+
 	/**
 	 * Used algorithm to calculate hash codes
 	 */
@@ -38,7 +44,7 @@ public class RSAImpl implements RSA {
 	/**
 	 * Keys
 	 */
-	private PublicKey publicKey = 	null;
+	private PublicKey publicKey = null;
 	private PrivateKey privateKey = null;
 
 	@Override
@@ -86,26 +92,40 @@ public class RSAImpl implements RSA {
 	@Override
 	public byte[] encrypt(byte[] data, boolean activateOAEP) {
 		byte[] cipher = null;
+		byte oaepMode = OAEP_OFF;
 
 		if (!isEmpty(data)) {
 			if (!activateOAEP) {
 				cipher = rsaEncrypt(data, this.publicKey.getE());
 			} else {
+				oaepMode = OAEP_ON;
 				// TODO
 			}
 		}
-		
+
+		if (cipher != null) {
+			byte[] temp = Arrays.copyOf(cipher, cipher.length);
+			cipher = new byte[temp.length + 1];
+			cipher[0] = oaepMode;
+			System.arraycopy(temp, 0, cipher, 1, temp.length);
+		}
+
 		return cipher;
 	}
 
 	@Override
 	public byte[] decrypt(byte[] data) {
 		byte[] original = null;
+		byte oaepMode = data[0];
 
-		if (false) {
+		// remove first byte again
+		byte[] cipher = new byte[data.length - 1];
+		cipher = Arrays.copyOfRange(data, 1, data.length);
+
+		if (oaepMode == OAEP_ON) {
 			// TODO
 		} else {
-			original = rsaDecrypt(data, this.privateKey.getD());
+			original = rsaDecrypt(cipher, this.privateKey.getD());
 		}
 
 		return original;
@@ -145,12 +165,14 @@ public class RSAImpl implements RSA {
 	}
 
 	/**
-	 * Encrypts a message with the specified key. If the encryption is not applicable to
-	 * the specified parameters the result is null.
+	 * Encrypts a message with the specified key. If the encryption is not
+	 * applicable to the specified parameters the result is null.
 	 * 
-	 * @param data	Data to encrypt as array of bytes
-	 * @param key	Key as BigInteger
-	 * @return 		Cipher as array of bytes
+	 * @param data
+	 *            Data to encrypt as array of bytes
+	 * @param key
+	 *            Key as BigInteger
+	 * @return Cipher as array of bytes
 	 */
 	private byte[] rsaEncrypt(byte[] data, BigInteger key) {
 		byte[] cipher = null;
@@ -167,14 +189,16 @@ public class RSAImpl implements RSA {
 			do {
 				int start = (steps - 1);
 				byte[] messagePart = new byte[originalLength];
-				int copyLength = data.length - start * blockLength < blockLength ? data.length - start * blockLength : blockLength;
+				int copyLength = data.length - start * blockLength < blockLength ? data.length - start * blockLength
+						: blockLength;
 
 				System.arraycopy(PADDING, 0, messagePart, 0, PADDING_SIZE);
 				System.arraycopy(data, start * blockLength, messagePart, PADDING_SIZE, copyLength);
 
 				messagePart = Arrays.copyOfRange(messagePart, 0, copyLength + PADDING_SIZE);
 				byte[] cipherBlock = proccessByteBlock(messagePart, key, this.publicKey.getN());
-				System.arraycopy(cipherBlock, 0, cipher, start * cipherBlockLength + (cipherBlockLength - cipherBlock.length), cipherBlock.length);
+				System.arraycopy(cipherBlock, 0, cipher,
+						start * cipherBlockLength + (cipherBlockLength - cipherBlock.length), cipherBlock.length);
 
 				steps++;
 			} while ((steps - 1) * blockLength < data.length);
@@ -184,12 +208,14 @@ public class RSAImpl implements RSA {
 	}
 
 	/**
-	 * Decrypts a cipher with the specified key. If the decryption is not applicable to
-	 * the specified parameters the result is null.
+	 * Decrypts a cipher with the specified key. If the decryption is not applicable
+	 * to the specified parameters the result is null.
 	 * 
-	 * @param data	Cipher to decrypt as array of bytes
-	 * @param key	Key as BigInteger
-	 * @return 		Original message as array of bytes
+	 * @param data
+	 *            Cipher to decrypt as array of bytes
+	 * @param key
+	 *            Key as BigInteger
+	 * @return Original message as array of bytes
 	 */
 	private byte[] rsaDecrypt(byte[] data, BigInteger key) {
 		byte[] original = null;
@@ -206,7 +232,8 @@ public class RSAImpl implements RSA {
 			int pos = 0;
 			do {
 				int start = steps - 1;
-				byte[] dataPart = Arrays.copyOfRange(data, start * dataBlockLength, start * dataBlockLength + dataBlockLength);
+				byte[] dataPart = Arrays.copyOfRange(data, start * dataBlockLength,
+						start * dataBlockLength + dataBlockLength);
 				byte[] messageBlock = proccessByteBlock(dataPart, key, this.privateKey.getN());
 
 				if (messageBlock[0] != 1) {
@@ -231,10 +258,13 @@ public class RSAImpl implements RSA {
 	 * Returns data^exponent MOD modulus ("Square & Multiply"). If the calculation
 	 * is not applicable to the specified parameters the result is null.
 	 * 
-	 * @param data		Data as array of bytes
-	 * @param exponent	Exponent as BigInteger
-	 * @param modulus	Modulus as BigInteger
-	 * @return 			data^exponent MOD modulus as array of bytes
+	 * @param data
+	 *            Data as array of bytes
+	 * @param exponent
+	 *            Exponent as BigInteger
+	 * @param modulus
+	 *            Modulus as BigInteger
+	 * @return data^exponent MOD modulus as array of bytes
 	 */
 	private byte[] proccessByteBlock(byte[] data, BigInteger exponent, BigInteger modulus) {
 		byte[] result = null;
@@ -249,19 +279,21 @@ public class RSAImpl implements RSA {
 	/**
 	 * Returns true if the specified array is empty, otherwise false.
 	 * 
-	 * @param arr	Array
+	 * @param arr
+	 *            Array
 	 * 
-	 * @return		true if the specified array is empty, otherwise false
+	 * @return true if the specified array is empty, otherwise false
 	 */
 	private boolean isEmpty(byte[] arr) {
 		return arr == null || arr.length == 0;
 	}
 
 	/**
-	 * Returns a hash code value for the specified data array. 
+	 * Returns a hash code value for the specified data array.
 	 * 
-	 * @param data	array of bytes to calculate the hash for
-	 * @return		hash code value for the specified data as array of bytes
+	 * @param data
+	 *            array of bytes to calculate the hash for
+	 * @return hash code value for the specified data as array of bytes
 	 */
 	private byte[] toHash(byte[] data) {
 		byte[] hash = null;
