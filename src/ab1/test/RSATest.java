@@ -12,7 +12,7 @@ import org.junit.Test;
 import ab1.RSA;
 import ab1.RSA.PrivateKey;
 import ab1.RSA.PublicKey;
-import ab1.impl.feichter.RSAImpl;
+import ab1.impl.FeichterUrbaniProhinig.RSAImpl;
 
 public class RSATest {
 	RSA rsa = new RSAImpl();
@@ -83,7 +83,7 @@ public class RSATest {
 		assertEquals(false, Arrays.equals(cipher1, cipherDiff));
 
 		if (r.nextBoolean()) {
-			// Keine Änderung des Schlüsseltexts
+			// Keine ï¿½nderung des Schlï¿½sseltexts
 			byte[] cipher = rsa.encrypt(data, false);
 
 			byte[] message_decrypted = rsa.decrypt(cipher);
@@ -92,7 +92,7 @@ public class RSATest {
 		} else {
 			byte[] cipher = rsa.encrypt(data, false);
 
-			// Baue Fehler ab der Hälfte der Daten ein (davor stehen eventuell
+			// Baue Fehler ab der Hï¿½lfte der Daten ein (davor stehen eventuell
 			// Protokolldaten)
 			for (int j = data.length / 2; j < data.length; j++)
 				cipher[j] = (byte) (cipher[j] ^ 0xFF);
@@ -133,18 +133,18 @@ public class RSATest {
 	}
 
 	private void testRSAOAEP(byte[] data, Random r) {
-		// Chiffrate müssen unterschiedlich sein
+		// Chiffrate mï¿½ssen unterschiedlich sein
 		byte[] cipher1 = rsa.encrypt(data, true);
 		byte[] cipher2 = rsa.encrypt(data, true);
 		assertEquals(false, Arrays.equals(cipher1, cipher2));
 
-		// Entschlüsselt muss es wieder das gleiche sein
+		// Entschlï¿½sselt muss es wieder das gleiche sein
 		byte[] decipher1 = rsa.decrypt(cipher1);
 		byte[] decipher2 = rsa.decrypt(cipher2);
 		assertArrayEquals(decipher1, decipher2);
 
 		if (r.nextBoolean()) {
-			// Keine Änderung des Schlüsseltexts
+			// Keine ï¿½nderung des Schlï¿½sseltexts
 			byte[] cipher = rsa.encrypt(data, false);
 
 			byte[] message_decrypted = rsa.decrypt(cipher);
@@ -153,7 +153,7 @@ public class RSATest {
 		} else {
 			byte[] cipher = rsa.encrypt(data, false);
 
-			// Baue Fehler ab der Hälfte der Daten ein (davor stehen eventuell
+			// Baue Fehler ab der Hï¿½lfte der Daten ein (davor stehen eventuell
 			// Protokolldaten)
 			for (int j = data.length / 2; j < data.length; j++)
 				cipher[j] = (byte) (cipher[j] ^ 0xFF);
@@ -177,10 +177,10 @@ public class RSATest {
 			r.nextBytes(data);
 
 			if (r.nextBoolean()) {
-				// Keine Änderung der Signatur/Daten
+				// Keine ï¿½nderung der Signatur/Daten
 				byte[] sign = rsa.sign(data);
 
-				assertEquals(true, sign.length <= KEYLENGTH / 8); // Signatur darf maximal so lang wie der Schlüssel
+				assertEquals(true, sign.length <= KEYLENGTH / 8); // Signatur darf maximal so lang wie der Schlï¿½ssel
 																	// sein (einfache Abfrage, ob wohl gehasht wurde)
 
 				assertEquals(true, rsa.verify(data, sign));
@@ -191,7 +191,7 @@ public class RSATest {
 				int pos = r.nextInt(data.length);
 				data[pos] = (byte) (data[pos] ^ 0x01);
 
-				assertEquals(true, sign.length <= KEYLENGTH / 8); // Signatur darf maximal so lang wie der Schlüssel
+				assertEquals(true, sign.length <= KEYLENGTH / 8); // Signatur darf maximal so lang wie der Schlï¿½ssel
 																	// sein (einfache Abfrage, ob wohl gehasht wurde)
 
 				assertEquals(false, rsa.verify(data, sign));
